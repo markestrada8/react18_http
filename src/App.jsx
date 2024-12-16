@@ -15,16 +15,21 @@ function App() {
   const [userPlaces, setUserPlaces] = useState([])
   const [errorUpdating, setErrorUpdating] = useState()
   const [modalIsOpen, setModalIsOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState()
 
+  // STATE HANDLERS
   function handleStartRemovePlace(place) {
     setModalIsOpen(true)
     selectedPlace.current = place
   }
 
+
   function handleStopRemovePlace() {
     setModalIsOpen(false)
   }
 
+  // ASYNC API HANDLERS
   async function handleSelectPlace(selectedPlace) {
     setUserPlaces((prevPickedPlaces) => {
       if (!prevPickedPlaces) {
@@ -44,12 +49,19 @@ function App() {
     }
   }
 
+
   useEffect(() => {
-    async function getUserPlaces() {
-      const fetchedUserPlaces = await fetchUserPlaces()
-      setUserPlaces(fetchedUserPlaces)
+    async function fetchPlaces() {
+      setIsLoading(true)
+      try {
+        const fetchedUserPlaces = await fetchUserPlaces()
+        setUserPlaces(fetchedUserPlaces)
+      } catch (error) {
+        setError({ message: error.message || 'Failed to fetch user data.' })
+      }
+      setIsLoading(false)
     }
-    getUserPlaces()
+    fetchPlaces()
   }, [])
 
 
@@ -57,10 +69,17 @@ function App() {
     setUserPlaces((prevPickedPlaces) =>
       prevPickedPlaces.filter((place) => place.id !== selectedPlace.current.id)
     )
+    try {
+      await updateUserPlaces(userPlaces.filter(place => place.id !== selectedPlace.current.id))
 
+    } catch (error) {
+      setUserPlaces(userPlaces)
+      setErrorUpdating({ message: error.message || 'Failed to delete item.' })
+    }
     setModalIsOpen(false)
-  }, [])
+  }, [userPlaces])
 
+  // ERROR HANDLERS
   function handleError() {
     setErrorUpdating(null)
   }
@@ -91,12 +110,15 @@ function App() {
         </p>
       </header>
       <main>
-        <Places
+        {error && <ErrorPage title="An error occured" message={error.message} />}
+        {!error && <Places
           title="I'd like to visit ..."
           fallbackText="Select the places you would like to visit below."
           places={userPlaces}
+          loadingText="Fetching data..."
+          isLoading={isLoading}
           onSelectPlace={handleStartRemovePlace}
-        />
+        />}
 
         <AvailablePlaces onSelectPlace={handleSelectPlace} />
       </main>
